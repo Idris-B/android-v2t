@@ -45,6 +45,11 @@ class TriggerManager(private val context: Context) {
         }
     }
 
+    /** Set the BT button behavior mode ("toggle" or "hold"). */
+    fun setBtTriggerMode(mode: String) {
+        mediaSessionTrigger.mode = mode
+    }
+
     /**
      * Release all trigger resources. Call this when the app is being
      * destroyed or when all triggers should be disabled.

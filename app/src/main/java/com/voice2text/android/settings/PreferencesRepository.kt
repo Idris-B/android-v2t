@@ -27,6 +27,7 @@ class PreferencesRepository(private val context: Context) {
         val NOTES_FOLDER_URI = stringPreferencesKey("notes_folder_uri")
         val BLUETOOTH_TRIGGER_ENABLED = booleanPreferencesKey("bluetooth_trigger_enabled")
         val SAVE_AUDIO = booleanPreferencesKey("save_audio_recording")
+        val BT_TRIGGER_MODE = stringPreferencesKey("bt_trigger_mode")
     }
 
     // ── Speech engine preference ────────────────────────────────────────
@@ -85,6 +86,19 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setSaveAudioRecording(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[SAVE_AUDIO] = enabled
+        }
+    }
+
+    // ── Bluetooth trigger mode preference ────────────────────────────
+
+    /** BT button behavior: "toggle" (press to start/stop) or "hold" (hold to record). */
+    val btTriggerMode: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[BT_TRIGGER_MODE] ?: "toggle"
+    }
+
+    suspend fun setBtTriggerMode(mode: String) {
+        context.dataStore.edit { prefs ->
+            prefs[BT_TRIGGER_MODE] = mode
         }
     }
 }

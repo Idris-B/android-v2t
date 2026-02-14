@@ -6,6 +6,9 @@ import android.content.Intent
 import android.view.KeyEvent
 import androidx.core.content.ContextCompat
 import com.voice2text.android.service.TranscriptionService
+import com.voice2text.android.settings.PreferencesRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * Receives media button events (e.g. from Bluetooth headsets) and
@@ -32,30 +35,51 @@ class MediaButtonReceiver : BroadcastReceiver() {
 
         val event = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT) ?: return
 
-        // Only respond to key-down to avoid double-firing
-        if (event.action != KeyEvent.ACTION_DOWN) return
-
-        // We respond to the "play/pause" button — the most common single
-        // button on Bluetooth headsets and wired earbuds.
-        when (event.keyCode) {
+        val isMediaButton = event.keyCode in listOf(
             KeyEvent.KEYCODE_MEDIA_PLAY,
             KeyEvent.KEYCODE_MEDIA_PAUSE,
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-            KeyEvent.KEYCODE_HEADSETHOOK -> {
-                toggleTranscription(context)
+            KeyEvent.KEYCODE_HEADSETHOOK
+        )
+        if (!isMediaButton) return
+
+        // BroadcastReceivers are short-lived — runBlocking is acceptable here
+        val mode = runBlocking {
+            PreferencesRepository(context.applicationContext).btTriggerMode.first()
+        }
+
+        when (mode) {
+            "hold" -> {
+                when (event.action) {
+                    KeyEvent.ACTION_DOWN -> startTranscription(context)
+                    KeyEvent.ACTION_UP -> stopTranscription(context)
+                }
             }
-            // Other media buttons (skip, rewind) are intentionally ignored
-            // so they don't interfere with music apps.
+            else -> {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    toggleTranscription(context)
+                }
+            }
         }
     }
 
     private fun toggleTranscription(context: Context) {
         if (TranscriptionService.isRunning) {
-            val stopIntent = TranscriptionService.stopIntent(context)
-            context.startService(stopIntent)
+            stopTranscription(context)
         } else {
-            val startIntent = TranscriptionService.startIntent(context)
-            ContextCompat.startForegroundService(context, startIntent)
+            startTranscription(context)
         }
+    }
+
+    private fun startTranscription(context: Context) {
+        if (TranscriptionService.isRunning) return
+        val startIntent = TranscriptionService.startIntent(context)
+        ContextCompat.startForegroundService(context, startIntent)
+    }
+
+    private fun stopTranscription(context: Context) {
+        if (!TranscriptionService.isRunning) return
+        val stopIntent = TranscriptionService.stopIntent(context)
+        context.startService(stopIntent)
     }
 }

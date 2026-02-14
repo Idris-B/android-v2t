@@ -19,6 +19,7 @@ import com.voice2text.android.speech.EngineFactory
 import com.voice2text.android.speech.SpeechEngine
 import com.voice2text.android.speech.TranscriptionEvent
 import com.voice2text.android.ui.MainActivity
+import com.voice2text.android.ui.NoteDetailActivity
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +49,9 @@ class TranscriptionService : Service() {
 
     companion object {
         const val CHANNEL_ID = "transcription_channel"
+        const val NOTE_SAVED_CHANNEL_ID = "notes_saved_channel"
         const val NOTIFICATION_ID = 1
+        const val NOTE_SAVED_NOTIFICATION_ID = 2
 
         const val ACTION_START = "com.voice2text.android.ACTION_START"
         const val ACTION_STOP = "com.voice2text.android.ACTION_STOP"
@@ -239,7 +242,8 @@ class TranscriptionService : Service() {
             serviceScope.launch {
                 try {
                     val folderUri = prefs.notesFolderUri.first()
-                    noteRepo.saveNote(finalText, folderUri, savedAudioPath ?: audioFilePath)
+                    val savedNote = noteRepo.saveNote(finalText, folderUri, savedAudioPath ?: audioFilePath)
+                    showNoteSavedNotification(savedNote.filePath, finalText)
                 } catch (e: Exception) {
                     // Note saving failed — not critical, the text is still
                     // visible in the UI for the user to copy manually.
@@ -266,15 +270,25 @@ class TranscriptionService : Service() {
     // ── Notification ────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
+        val manager = getSystemService(NotificationManager::class.java)
+
+        val transcriptionChannel = NotificationChannel(
             CHANNEL_ID,
             "Transcription",
             NotificationManager.IMPORTANCE_LOW  // no sound, just persistent icon
         ).apply {
             description = "Shows when Voice2Text is actively transcribing"
         }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(transcriptionChannel)
+
+        val noteSavedChannel = NotificationChannel(
+            NOTE_SAVED_CHANNEL_ID,
+            getString(R.string.note_saved_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT  // sound + vibration
+        ).apply {
+            description = "Shows when a transcribed note has been saved"
+        }
+        manager.createNotificationChannel(noteSavedChannel)
     }
 
     private fun buildNotification(contentText: String): Notification {
@@ -303,6 +317,30 @@ class TranscriptionService : Service() {
             )
             .setOngoing(true)
             .build()
+    }
+
+    private fun showNoteSavedNotification(notePath: String, noteText: String) {
+        val tapIntent = Intent(this, NoteDetailActivity::class.java).apply {
+            putExtra(NoteDetailActivity.EXTRA_NOTE_PATH, notePath)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val tapPending = PendingIntent.getActivity(
+            this, 2, tapIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val preview = if (noteText.length > 60) noteText.take(60) + "…" else noteText
+
+        val notification = NotificationCompat.Builder(this, NOTE_SAVED_CHANNEL_ID)
+            .setContentTitle(getString(R.string.note_saved_notification_title))
+            .setContentText(preview)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentIntent(tapPending)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTE_SAVED_NOTIFICATION_ID, notification)
     }
 
     private fun updateNotification(contentText: String) {

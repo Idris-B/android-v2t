@@ -29,10 +29,15 @@ class Voice2TextApplication : Application() {
         triggerManager = TriggerManager(applicationContext)
         val prefs = PreferencesRepository(applicationContext)
 
-        // Reactively mirror the preference into the trigger manager
+        // Reactively mirror preferences into the trigger manager
         appScope.launch {
             prefs.bluetoothTriggerEnabled.collect { enabled ->
                 triggerManager.setBluetoothTriggerEnabled(enabled)
+            }
+        }
+        appScope.launch {
+            prefs.btTriggerMode.collect { mode ->
+                triggerManager.setBtTriggerMode(mode)
             }
         }
     }

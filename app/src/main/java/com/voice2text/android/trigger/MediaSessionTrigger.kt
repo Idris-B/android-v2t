@@ -42,6 +42,9 @@ class MediaSessionTrigger(private val context: Context) {
 
     private var mediaSession: MediaSession? = null
 
+    /** BT button behavior: "toggle" (default) or "hold" (hold-to-record). */
+    var mode: String = "toggle"
+
     val isActive: Boolean get() = mediaSession != null
 
     fun activate() {
@@ -54,18 +57,28 @@ class MediaSessionTrigger(private val context: Context) {
                 val event = mediaButtonIntent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
                     ?: return false
 
-                if (event.action != KeyEvent.ACTION_DOWN) return false
-
-                return when (event.keyCode) {
+                val isMediaButton = event.keyCode in listOf(
                     KeyEvent.KEYCODE_MEDIA_PLAY,
                     KeyEvent.KEYCODE_MEDIA_PAUSE,
                     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-                    KeyEvent.KEYCODE_HEADSETHOOK -> {
-                        toggleTranscription()
-                        true  // consumed
+                    KeyEvent.KEYCODE_HEADSETHOOK
+                )
+                if (!isMediaButton) return false
+
+                when (mode) {
+                    "hold" -> {
+                        when (event.action) {
+                            KeyEvent.ACTION_DOWN -> startTranscription()
+                            KeyEvent.ACTION_UP -> stopTranscription()
+                        }
                     }
-                    else -> false
+                    else -> {
+                        if (event.action == KeyEvent.ACTION_DOWN) {
+                            toggleTranscription()
+                        }
+                    }
                 }
+                return true
             }
         }, Handler(Looper.getMainLooper()))
 
@@ -94,11 +107,21 @@ class MediaSessionTrigger(private val context: Context) {
 
     private fun toggleTranscription() {
         if (TranscriptionService.isRunning) {
-            val stopIntent = TranscriptionService.stopIntent(context)
-            context.startService(stopIntent)
+            stopTranscription()
         } else {
-            val startIntent = TranscriptionService.startIntent(context)
-            ContextCompat.startForegroundService(context, startIntent)
+            startTranscription()
         }
+    }
+
+    private fun startTranscription() {
+        if (TranscriptionService.isRunning) return
+        val startIntent = TranscriptionService.startIntent(context)
+        ContextCompat.startForegroundService(context, startIntent)
+    }
+
+    private fun stopTranscription() {
+        if (!TranscriptionService.isRunning) return
+        val stopIntent = TranscriptionService.stopIntent(context)
+        context.startService(stopIntent)
     }
 }

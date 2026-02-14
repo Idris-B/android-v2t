@@ -48,6 +48,9 @@
     <string name="settings_section_triggers">Triggers</string>
     <string name="settings_bt_trigger_label">Bluetooth media button</string>
     <string name="settings_bt_trigger_description">Press play/pause on a Bluetooth headset or wired earbuds to toggle recording. Disables media controls for other apps while active.</string>
+    <string name="settings_bt_mode_label">Button behavior</string>
+    <string name="settings_bt_mode_toggle">Toggle (press to start/stop)</string>
+    <string name="settings_bt_mode_hold">Hold to record (release to stop &amp; save)</string>
     <string name="settings_qs_label">Quick Settings tile</string>
     <string name="settings_qs_description">Always available. Pull down the notification shade and tap the Voice2Text tile. Add it via "Edit tiles" if you don\'t see it.</string>
     <string name="settings_notif_label">Notification actions</string>
@@ -56,4 +59,8 @@
     <!-- Audio playback -->
     <string name="play_audio">Play audio</string>
     <string name="pause_audio">Pause audio</string>
+
+    <!-- Note saved notification -->
+    <string name="note_saved_notification_title">Note saved</string>
+    <string name="note_saved_channel_name">Saved notes</string>
 </resources>

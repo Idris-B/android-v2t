@@ -271,12 +271,34 @@ class SettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val btEnabled = prefs.bluetoothTriggerEnabled.first()
             binding.bluetoothTriggerSwitch.isChecked = btEnabled
+            updateBtModeVisibility(btEnabled)
+
+            val btMode = prefs.btTriggerMode.first()
+            when (btMode) {
+                "hold" -> binding.radioBtHold.isChecked = true
+                else -> binding.radioBtToggle.isChecked = true
+            }
         }
 
         binding.bluetoothTriggerSwitch.setOnCheckedChangeListener { _, isChecked ->
             lifecycleScope.launch {
                 prefs.setBluetoothTriggerEnabled(isChecked)
             }
+            updateBtModeVisibility(isChecked)
         }
+
+        binding.btModeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val mode = when (checkedId) {
+                R.id.radioBtHold -> "hold"
+                else -> "toggle"
+            }
+            lifecycleScope.launch {
+                prefs.setBtTriggerMode(mode)
+            }
+        }
+    }
+
+    private fun updateBtModeVisibility(btEnabled: Boolean) {
+        binding.btModeRadioGroup.visibility = if (btEnabled) View.VISIBLE else View.GONE
     }
 }

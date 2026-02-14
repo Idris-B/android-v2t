@@ -279,6 +279,38 @@
 
                 </LinearLayout>
 
+                <!-- BT button mode (visible only when BT trigger is enabled) -->
+                <RadioGroup
+                    android:id="@+id/btModeRadioGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_bt_mode_label"
+                        android:textSize="14sp"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:layout_marginBottom="4dp" />
+
+                    <RadioButton
+                        android:id="@+id/radioBtToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_bt_mode_toggle"
+                        android:paddingStart="8dp" />
+
+                    <RadioButton
+                        android:id="@+id/radioBtHold"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_bt_mode_hold"
+                        android:paddingStart="8dp" />
+                </RadioGroup>
+
                 <!-- Divider -->
                 <View
                     android:layout_width="match_parent"
