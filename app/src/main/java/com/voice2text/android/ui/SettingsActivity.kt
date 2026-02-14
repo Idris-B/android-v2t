@@ -53,11 +53,13 @@ class SettingsActivity : AppCompatActivity() {
         prefs = PreferencesRepository(applicationContext)
         modelManager = VoskModelManager(applicationContext)
 
+        setupThemeSection()
         setupEngineSection()
         observeModelState()
         setupStorageSection()
         setupAudioSection()
         setupTriggersSection()
+        applyTheme()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -66,6 +68,42 @@ class SettingsActivity : AppCompatActivity() {
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    // ── Theme ────────────────────────────────────────────────────────────
+
+    private fun applyTheme() {
+        lifecycleScope.launch {
+            val theme = ThemeColors.forKey(prefs.appTheme.first())
+            theme.applyTo(this@SettingsActivity)
+        }
+    }
+
+    // ── Theme section ────────────────────────────────────────────────────
+
+    private fun setupThemeSection() {
+        lifecycleScope.launch {
+            val currentTheme = prefs.appTheme.first()
+            when (currentTheme) {
+                "dark" -> binding.radioThemeDark.isChecked = true
+                "amoled" -> binding.radioThemeAmoled.isChecked = true
+                "sepia" -> binding.radioThemeSepia.isChecked = true
+                else -> binding.radioThemeLight.isChecked = true
+            }
+        }
+
+        binding.themeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val themeKey = when (checkedId) {
+                R.id.radioThemeDark -> "dark"
+                R.id.radioThemeAmoled -> "amoled"
+                R.id.radioThemeSepia -> "sepia"
+                else -> "light"
+            }
+            lifecycleScope.launch {
+                prefs.setAppTheme(themeKey)
+            }
+            recreate()
+        }
     }
 
     // ── Engine section ───────────────────────────────────────────────────

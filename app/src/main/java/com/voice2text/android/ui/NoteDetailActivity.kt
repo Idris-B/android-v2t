@@ -63,6 +63,7 @@ class NoteDetailActivity : AppCompatActivity() {
 
         loadNote()
         setupButtons()
+        applyTheme()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -74,6 +75,18 @@ class NoteDetailActivity : AppCompatActivity() {
         mediaPlayer?.release()
         mediaPlayer = null
         super.onDestroy()
+    }
+
+    // ── Theme ────────────────────────────────────────────────────────────
+
+    private fun applyTheme() {
+        lifecycleScope.launch {
+            val theme = ThemeColors.forKey(prefs.appTheme.first())
+            theme.applyTo(this@NoteDetailActivity)
+
+            binding.noteTimestamp.setTextColor(theme.secondaryText)
+            binding.noteText.setTextColor(theme.text)
+        }
     }
 
     // ── Load ──────────────────────────────────────────────────────────────

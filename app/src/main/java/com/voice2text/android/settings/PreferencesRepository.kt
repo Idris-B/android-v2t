@@ -28,6 +28,7 @@ class PreferencesRepository(private val context: Context) {
         val BLUETOOTH_TRIGGER_ENABLED = booleanPreferencesKey("bluetooth_trigger_enabled")
         val SAVE_AUDIO = booleanPreferencesKey("save_audio_recording")
         val BT_TRIGGER_MODE = stringPreferencesKey("bt_trigger_mode")
+        val APP_THEME = stringPreferencesKey("app_theme")
     }
 
     // ── Speech engine preference ────────────────────────────────────────
@@ -99,6 +100,19 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setBtTriggerMode(mode: String) {
         context.dataStore.edit { prefs ->
             prefs[BT_TRIGGER_MODE] = mode
+        }
+    }
+
+    // ── App theme preference ──────────────────────────────────────────
+
+    /** Selected color theme: "light", "dark", "amoled", or "sepia". Defaults to "light". */
+    val appTheme: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[APP_THEME] ?: "light"
+    }
+
+    suspend fun setAppTheme(theme: String) {
+        context.dataStore.edit { prefs ->
+            prefs[APP_THEME] = theme
         }
     }
 }

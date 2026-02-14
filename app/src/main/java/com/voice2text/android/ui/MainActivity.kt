@@ -8,6 +8,10 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.PorterDuff
+import android.graphics.drawable.GradientDrawable
 import android.os.IBinder
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -86,6 +90,7 @@ class MainActivity : AppCompatActivity() {
 
         setupNotesRecyclerView()
         setupButtons()
+        applyTheme()
         loadNotes()
     }
 
@@ -108,6 +113,30 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadNotes()
+    }
+
+    // ── Theme ────────────────────────────────────────────────────────────
+
+    private fun applyTheme() {
+        lifecycleScope.launch {
+            val theme = ThemeColors.forKey(prefs.appTheme.first())
+            theme.applyTo(this@MainActivity)
+
+            binding.titleText.setTextColor(theme.text)
+            binding.statusText.setTextColor(theme.secondaryText)
+            binding.transcriptText.setTextColor(theme.text)
+            binding.emptyStateText.setTextColor(theme.secondaryText)
+
+            // Tint the transcript background drawable
+            val bg = binding.transcriptScroll.background
+            if (bg is GradientDrawable) {
+                // Use a slightly lighter/darker shade for the transcript area
+                val tintColor = if (theme == ThemeColors.forKey("light")) 0xFFF5F5F5.toInt()
+                else theme.background
+                bg.setColor(tintColor)
+                bg.setStroke(1, theme.secondaryText and 0x40FFFFFF)
+            }
+        }
     }
 
     // ── Setup ────────────────────────────────────────────────────────────

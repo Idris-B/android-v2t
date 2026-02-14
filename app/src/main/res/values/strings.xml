@@ -23,6 +23,13 @@
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
 
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_label">Color theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_amoled">AMOLED Black</string>
+    <string name="settings_theme_sepia">Sepia</string>
+
     <string name="settings_section_engine">Speech Engine</string>
     <string name="settings_engine_label">Recognition engine</string>
     <string name="settings_engine_description">Choose how speech is converted to text.</string>
