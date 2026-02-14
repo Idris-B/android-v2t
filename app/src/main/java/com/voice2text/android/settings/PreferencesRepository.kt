@@ -26,6 +26,7 @@ class PreferencesRepository(private val context: Context) {
         val SPEECH_ENGINE = stringPreferencesKey("speech_engine")
         val NOTES_FOLDER_URI = stringPreferencesKey("notes_folder_uri")
         val BLUETOOTH_TRIGGER_ENABLED = booleanPreferencesKey("bluetooth_trigger_enabled")
+        val SAVE_AUDIO = booleanPreferencesKey("save_audio_recording")
     }
 
     // ── Speech engine preference ────────────────────────────────────────
@@ -71,6 +72,19 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setBluetoothTriggerEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[BLUETOOTH_TRIGGER_ENABLED] = enabled
+        }
+    }
+
+    // ── Save audio recording preference ──────────────────────────────
+
+    /** Whether to save audio recordings alongside notes. Defaults to false. */
+    val saveAudioRecording: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SAVE_AUDIO] ?: false
+    }
+
+    suspend fun setSaveAudioRecording(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[SAVE_AUDIO] = enabled
         }
     }
 }

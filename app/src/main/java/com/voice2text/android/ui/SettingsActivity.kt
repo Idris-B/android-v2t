@@ -56,6 +56,7 @@ class SettingsActivity : AppCompatActivity() {
         setupEngineSection()
         observeModelState()
         setupStorageSection()
+        setupAudioSection()
         setupTriggersSection()
     }
 
@@ -243,6 +244,21 @@ class SettingsActivity : AppCompatActivity() {
             )
             binding.currentFolderText.text = readable
             binding.resetFolderButton.visibility = View.VISIBLE
+        }
+    }
+
+    // ── Audio recording section ─────────────────────────────────────────
+
+    private fun setupAudioSection() {
+        lifecycleScope.launch {
+            val enabled = prefs.saveAudioRecording.first()
+            binding.saveAudioSwitch.isChecked = enabled
+        }
+
+        binding.saveAudioSwitch.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch {
+                prefs.setSaveAudioRecording(isChecked)
+            }
         }
     }
 

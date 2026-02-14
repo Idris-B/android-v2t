@@ -23,5 +23,8 @@ data class NoteEntity(
      * Where the file lives. For internal storage this is an absolute path;
      * for SAF-managed external folders this is a content:// URI string.
      */
-    val filePath: String
+    val filePath: String,
+
+    /** Absolute path to the associated audio recording, or null if none. */
+    val audioFilePath: String? = null
 )

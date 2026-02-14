@@ -14,10 +14,12 @@ import androidx.core.app.NotificationCompat
 import com.voice2text.android.R
 import com.voice2text.android.notes.NoteRepository
 import com.voice2text.android.settings.PreferencesRepository
+import com.voice2text.android.speech.AudioRecorder
 import com.voice2text.android.speech.EngineFactory
 import com.voice2text.android.speech.SpeechEngine
 import com.voice2text.android.speech.TranscriptionEvent
 import com.voice2text.android.ui.MainActivity
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -84,6 +86,8 @@ class TranscriptionService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var engine: SpeechEngine? = null
     private var collectionJob: Job? = null
+    private var audioRecorder: AudioRecorder? = null
+    private var audioFilePath: String? = null
 
     private lateinit var prefs: PreferencesRepository
     private lateinit var noteRepo: NoteRepository
@@ -122,6 +126,8 @@ class TranscriptionService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        audioRecorder?.release()
+        audioRecorder = null
         engine?.release()
         serviceScope.cancel()
         super.onDestroy()
@@ -183,6 +189,26 @@ class TranscriptionService : Service() {
                 _transcriptionState.value = State.Listening("")
                 updateNotification("Listening...")
 
+                // Start audio recording if enabled
+                val saveAudio = prefs.saveAudioRecording.first()
+                if (saveAudio) {
+                    try {
+                        val notesDir = File(filesDir, "notes").also { it.mkdirs() }
+                        val timestamp = java.time.LocalDateTime.now()
+                        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+                        val audioFile = File(notesDir, "VoiceNote_${fmt.format(timestamp)}.m4a")
+                        val recorder = AudioRecorder()
+                        recorder.start(applicationContext, audioFile)
+                        audioRecorder = recorder
+                        audioFilePath = audioFile.absolutePath
+                    } catch (e: Exception) {
+                        // Audio recording is best-effort; don't fail transcription
+                        android.util.Log.e("TranscriptionService", "Failed to start audio recording", e)
+                        audioRecorder = null
+                        audioFilePath = null
+                    }
+                }
+
             } catch (e: Exception) {
                 _transcriptionState.value = State.Error(
                     e.message ?: "Failed to start transcription"
@@ -197,6 +223,14 @@ class TranscriptionService : Service() {
         collectionJob?.cancel()
         collectionJob = null
 
+        // Stop audio recording
+        val savedAudioPath = try {
+            audioRecorder?.stop()?.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+        audioRecorder = null
+
         val finalText = _fullTranscript.toString().trim()
 
         if (finalText.isNotBlank()) {
@@ -205,7 +239,7 @@ class TranscriptionService : Service() {
             serviceScope.launch {
                 try {
                     val folderUri = prefs.notesFolderUri.first()
-                    noteRepo.saveNote(finalText, folderUri)
+                    noteRepo.saveNote(finalText, folderUri, savedAudioPath ?: audioFilePath)
                 } catch (e: Exception) {
                     // Note saving failed — not critical, the text is still
                     // visible in the UI for the user to copy manually.
@@ -223,6 +257,7 @@ class TranscriptionService : Service() {
 
     private fun cleanupService() {
         isRunning = false
+        audioFilePath = null
         _transcriptionState.value = State.Idle
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

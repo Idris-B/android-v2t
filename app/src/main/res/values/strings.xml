@@ -42,6 +42,8 @@
     <string name="settings_folder_default">Internal app storage (default)</string>
     <string name="settings_choose_folder">Choose folder</string>
     <string name="settings_reset_folder">Reset to default</string>
+    <string name="settings_save_audio_label">Save audio recording</string>
+    <string name="settings_save_audio_description">Keep the original voice recording (.m4a) alongside each note for playback later.</string>
 
     <string name="settings_section_triggers">Triggers</string>
     <string name="settings_bt_trigger_label">Bluetooth media button</string>
@@ -50,4 +52,8 @@
     <string name="settings_qs_description">Always available. Pull down the notification shade and tap the Voice2Text tile. Add it via "Edit tiles" if you don\'t see it.</string>
     <string name="settings_notif_label">Notification actions</string>
     <string name="settings_notif_description">While recording, a "Stop" button appears in the persistent notification.</string>
+
+    <!-- Audio playback -->
+    <string name="play_audio">Play audio</string>
+    <string name="pause_audio">Pause audio</string>
 </resources>

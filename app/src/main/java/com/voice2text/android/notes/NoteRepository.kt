@@ -29,6 +29,7 @@ class NoteRepository(private val context: Context) {
         private const val FILE_EXTENSION = ".md"
         private val TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
         private val DISPLAY_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a")
+        private val AUDIO_COMMENT_REGEX = Regex("<!-- audio: (.+?) -->")
     }
 
     /**
@@ -36,17 +37,22 @@ class NoteRepository(private val context: Context) {
      *
      * @param text The transcribed text to save.
      * @param folderUriString SAF URI of the user-chosen folder, or null for internal storage.
+     * @param audioFilePath Absolute path to an associated audio recording, or null.
      * @return The [NoteEntity] representing the saved note.
      */
-    suspend fun saveNote(text: String, folderUriString: String?): NoteEntity {
+    suspend fun saveNote(
+        text: String,
+        folderUriString: String?,
+        audioFilePath: String? = null
+    ): NoteEntity {
         val now = LocalDateTime.now()
         val fileName = "$FILE_PREFIX${TIMESTAMP_FORMAT.format(now)}$FILE_EXTENSION"
-        val content = buildNoteContent(text, now)
+        val content = buildNoteContent(text, now, audioFilePath)
 
         return if (folderUriString != null) {
-            saveToExternalFolder(content, fileName, folderUriString, now, text)
+            saveToExternalFolder(content, fileName, folderUriString, now, text, audioFilePath)
         } else {
-            saveToInternalStorage(content, fileName, now, text)
+            saveToInternalStorage(content, fileName, now, text, audioFilePath)
         }
     }
 
@@ -78,9 +84,12 @@ class NoteRepository(private val context: Context) {
     }
 
     /**
-     * Deletes a note by its file path.
+     * Deletes a note by its file path, including any associated audio file.
      */
     suspend fun deleteNote(filePath: String): Boolean = withContext(Dispatchers.IO) {
+        // Try to find and delete associated audio file
+        deleteAssociatedAudio(filePath)
+
         if (filePath.startsWith("content://")) {
             val uri = Uri.parse(filePath)
             val doc = DocumentFile.fromSingleUri(context, uri)
@@ -90,17 +99,50 @@ class NoteRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Reads the note file to find an audio comment, then deletes the audio file.
+     */
+    private fun deleteAssociatedAudio(filePath: String) {
+        try {
+            val content = if (filePath.startsWith("content://")) {
+                val uri = Uri.parse(filePath)
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            } else {
+                File(filePath).takeIf { it.exists() }?.readText()
+            }
+            val audioFileName = content?.let { AUDIO_COMMENT_REGEX.find(it)?.groupValues?.get(1) }
+            if (audioFileName != null) {
+                val audioFile = File(File(context.filesDir, NOTES_DIR), audioFileName)
+                audioFile.delete()
+            }
+        } catch (_: Exception) {
+            // Best effort — don't fail the note deletion if audio cleanup fails
+        }
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
-    private fun buildNoteContent(text: String, timestamp: LocalDateTime): String {
-        return "# Voice Note — ${DISPLAY_FORMAT.format(timestamp)}\n\n$text\n"
+    private fun buildNoteContent(
+        text: String,
+        timestamp: LocalDateTime,
+        audioFilePath: String? = null
+    ): String {
+        val sb = StringBuilder()
+        sb.append("# Voice Note — ${DISPLAY_FORMAT.format(timestamp)}\n\n")
+        sb.append("$text\n")
+        if (audioFilePath != null) {
+            val audioFileName = File(audioFilePath).name
+            sb.append("\n<!-- audio: $audioFileName -->\n")
+        }
+        return sb.toString()
     }
 
     private suspend fun saveToInternalStorage(
         content: String,
         fileName: String,
         timestamp: LocalDateTime,
-        rawText: String
+        rawText: String,
+        audioFilePath: String? = null
     ): NoteEntity = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, NOTES_DIR).also { it.mkdirs() }
         val file = File(dir, fileName)
@@ -110,7 +152,8 @@ class NoteRepository(private val context: Context) {
             title = deriveTitle(rawText, timestamp),
             text = rawText,
             timestamp = timestamp,
-            filePath = file.absolutePath
+            filePath = file.absolutePath,
+            audioFilePath = audioFilePath
         )
     }
 
@@ -119,7 +162,8 @@ class NoteRepository(private val context: Context) {
         fileName: String,
         folderUriString: String,
         timestamp: LocalDateTime,
-        rawText: String
+        rawText: String,
+        audioFilePath: String? = null
     ): NoteEntity = withContext(Dispatchers.IO) {
         val folderUri = Uri.parse(folderUriString)
         val folder = DocumentFile.fromTreeUri(context, folderUri)
@@ -136,7 +180,8 @@ class NoteRepository(private val context: Context) {
             title = deriveTitle(rawText, timestamp),
             text = rawText,
             timestamp = timestamp,
-            filePath = docFile.uri.toString()
+            filePath = docFile.uri.toString(),
+            audioFilePath = audioFilePath
         )
     }
 
@@ -151,11 +196,14 @@ class NoteRepository(private val context: Context) {
                 val text = file.readText()
                 val rawText = extractRawText(text)
                 val timestamp = parseTimestampFromFileName(file.name)
+                val audioFileName = AUDIO_COMMENT_REGEX.find(text)?.groupValues?.get(1)
+                val audioPath = audioFileName?.let { File(dir, it).absolutePath }
                 NoteEntity(
                     title = deriveTitle(rawText, timestamp),
                     text = rawText,
                     timestamp = timestamp,
-                    filePath = file.absolutePath
+                    filePath = file.absolutePath,
+                    audioFilePath = audioPath
                 )
             }
             ?: emptyList()
@@ -164,6 +212,7 @@ class NoteRepository(private val context: Context) {
     private fun listFromExternalFolder(folderUriString: String): List<NoteEntity> {
         val folderUri = Uri.parse(folderUriString)
         val folder = DocumentFile.fromTreeUri(context, folderUri) ?: return emptyList()
+        val internalDir = File(context.filesDir, NOTES_DIR)
 
         return folder.listFiles()
             .filter { it.name?.startsWith(FILE_PREFIX) == true && it.name?.endsWith(FILE_EXTENSION) == true }
@@ -174,11 +223,14 @@ class NoteRepository(private val context: Context) {
                         ?.bufferedReader()?.use { it.readText() } ?: return@mapNotNull null
                     val rawText = extractRawText(text)
                     val timestamp = parseTimestampFromFileName(docFile.name ?: "")
+                    val audioFileName = AUDIO_COMMENT_REGEX.find(text)?.groupValues?.get(1)
+                    val audioPath = audioFileName?.let { File(internalDir, it).absolutePath }
                     NoteEntity(
                         title = deriveTitle(rawText, timestamp),
                         text = rawText,
                         timestamp = timestamp,
-                        filePath = docFile.uri.toString()
+                        filePath = docFile.uri.toString(),
+                        audioFilePath = audioPath
                     )
                 } catch (e: Exception) {
                     null // Skip files we can't read
@@ -190,13 +242,15 @@ class NoteRepository(private val context: Context) {
      * Strips the markdown header from stored content to get the raw transcription.
      */
     private fun extractRawText(fileContent: String): String {
-        // Content format: "# Voice Note — ...\n\n<raw text>\n"
+        // Content format: "# Voice Note — ...\n\n<raw text>\n\n<!-- audio: ... -->\n"
         val headerEnd = fileContent.indexOf("\n\n")
-        return if (headerEnd >= 0) {
+        val body = if (headerEnd >= 0) {
             fileContent.substring(headerEnd + 2).trimEnd()
         } else {
             fileContent.trimEnd()
         }
+        // Strip the audio comment if present
+        return AUDIO_COMMENT_REGEX.replace(body, "").trimEnd()
     }
 
     /**

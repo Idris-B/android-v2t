@@ -3,7 +3,9 @@ package com.voice2text.android.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.media.MediaPlayer
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -12,6 +14,7 @@ import com.voice2text.android.R
 import com.voice2text.android.databinding.ActivityNoteDetailBinding
 import com.voice2text.android.notes.NoteRepository
 import com.voice2text.android.settings.PreferencesRepository
+import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -40,6 +43,8 @@ class NoteDetailActivity : AppCompatActivity() {
     private var noteText: String = ""
     private var noteTitle: String = ""
     private var notePath: String = ""
+    private var mediaPlayer: MediaPlayer? = null
+    private var isPlaying: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +68,12 @@ class NoteDetailActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    override fun onDestroy() {
+        mediaPlayer?.release()
+        mediaPlayer = null
+        super.onDestroy()
     }
 
     // ── Load ──────────────────────────────────────────────────────────────
@@ -91,7 +102,51 @@ class NoteDetailActivity : AppCompatActivity() {
             val formatter = DateTimeFormatter.ofPattern("MMMM d, yyyy  h:mm a")
             binding.noteTimestamp.text = note.timestamp.format(formatter)
             binding.noteText.text = noteText
+
+            // Show play button if audio file exists
+            val audioPath = note.audioFilePath
+            if (audioPath != null && File(audioPath).exists()) {
+                binding.playAudioButton.visibility = View.VISIBLE
+                setupAudioPlayback(audioPath)
+            }
         }
+    }
+
+    // ── Audio playback ─────────────────────────────────────────────────────
+
+    private fun setupAudioPlayback(audioPath: String) {
+        binding.playAudioButton.setOnClickListener {
+            if (isPlaying) {
+                pauseAudio()
+            } else {
+                playAudio(audioPath)
+            }
+        }
+    }
+
+    private fun playAudio(audioPath: String) {
+        if (mediaPlayer == null) {
+            val player = MediaPlayer()
+            player.setDataSource(audioPath)
+            player.prepare()
+            player.setOnCompletionListener {
+                isPlaying = false
+                binding.playAudioButton.text = getString(R.string.play_audio)
+                binding.playAudioButton.setIconResource(android.R.drawable.ic_media_play)
+            }
+            mediaPlayer = player
+        }
+        mediaPlayer?.start()
+        isPlaying = true
+        binding.playAudioButton.text = getString(R.string.pause_audio)
+        binding.playAudioButton.setIconResource(android.R.drawable.ic_media_pause)
+    }
+
+    private fun pauseAudio() {
+        mediaPlayer?.pause()
+        isPlaying = false
+        binding.playAudioButton.text = getString(R.string.play_audio)
+        binding.playAudioButton.setIconResource(android.R.drawable.ic_media_play)
     }
 
     // ── Buttons ───────────────────────────────────────────────────────────
