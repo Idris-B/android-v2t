@@ -19,6 +19,11 @@ import kotlinx.coroutines.flow.asSharedFlow
  * devices support offline). Simpler setup than Vosk — no model download —
  * but requires network for best results.
  *
+ * **Continuous mode** (enabled by default): Android's SpeechRecognizer
+ * terminates after delivering results or encountering certain errors.
+ * This engine automatically restarts the recognizer after each result
+ * or recoverable error so the user experiences uninterrupted listening.
+ *
  * Threading: Android's SpeechRecognizer MUST be created and called on the
  * main thread. We use a [Handler] to ensure all operations post to the
  * main looper, so callers can invoke start/stop from any thread safely.
@@ -26,6 +31,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 class AndroidSpeechEngine(
     private val context: Context
 ) : SpeechEngine, RecognitionListener {
+
+    companion object {
+        /** Delay before restarting the recognizer after a result or recoverable error. */
+        private const val RESTART_DELAY_MS = 300L
+    }
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -42,6 +52,15 @@ class AndroidSpeechEngine(
 
     override var isListening: Boolean = false
         private set
+
+    /**
+     * When true, the engine automatically restarts after each result or
+     * recoverable error. Set to false only via [stopListening] / [release].
+     */
+    private var isStopping: Boolean = false
+
+    /** Runnable used for delayed restarts so we can cancel pending ones. */
+    private val restartRunnable = Runnable { restartRecognizer() }
 
     /**
      * Checks that speech recognition is available on this device.
@@ -68,42 +87,17 @@ class AndroidSpeechEngine(
             return
         }
 
+        isStopping = false
+
         mainHandler.post {
-            try {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(context).also {
-                    it.setRecognitionListener(this)
-                }
-
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(
-                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                    )
-                    // Return partial results as they come in
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    // Don't auto-stop after silence — we control stop explicitly
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 60_000L)
-                    putExtra(
-                        RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
-                        30_000L
-                    )
-                    putExtra(
-                        RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
-                        30_000L
-                    )
-                }
-
-                recognizer?.startListening(intent)
-                isListening = true
-            } catch (e: Exception) {
-                _events.tryEmit(
-                    TranscriptionEvent.Error("Failed to start recognizer: ${e.message}")
-                )
-            }
+            startRecognizerInternal()
         }
     }
 
     override fun stopListening() {
+        isStopping = true
+        mainHandler.removeCallbacks(restartRunnable)
+
         if (!isListening) return
 
         mainHandler.post {
@@ -117,6 +111,9 @@ class AndroidSpeechEngine(
     }
 
     override fun release() {
+        isStopping = true
+        mainHandler.removeCallbacks(restartRunnable)
+
         mainHandler.post {
             try {
                 recognizer?.destroy()
@@ -127,6 +124,66 @@ class AndroidSpeechEngine(
             isReady = false
             isListening = false
         }
+    }
+
+    // ── Internal helpers ─────────────────────────────────────────────────
+
+    /**
+     * Creates a fresh recognizer and starts listening.
+     * Must be called on the main thread.
+     */
+    private fun startRecognizerInternal() {
+        if (isStopping) return
+
+        try {
+            // Destroy the previous recognizer to avoid leaks
+            recognizer?.destroy()
+            recognizer = SpeechRecognizer.createSpeechRecognizer(context).also {
+                it.setRecognitionListener(this)
+            }
+
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
+                // Return partial results as they come in
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                // Don't auto-stop after silence — we control stop explicitly
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 60_000L)
+                putExtra(
+                    RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,
+                    30_000L
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                    30_000L
+                )
+            }
+
+            recognizer?.startListening(intent)
+            isListening = true
+        } catch (e: Exception) {
+            _events.tryEmit(
+                TranscriptionEvent.Error("Failed to start recognizer: ${e.message}")
+            )
+        }
+    }
+
+    /**
+     * Schedules a restart of the recognizer after a short delay.
+     * The delay avoids hammering the system and gives the previous
+     * recognizer time to fully release resources.
+     */
+    private fun scheduleRestart() {
+        if (isStopping) return
+        mainHandler.postDelayed(restartRunnable, RESTART_DELAY_MS)
+    }
+
+    /** Called by [restartRunnable] on the main thread. */
+    private fun restartRecognizer() {
+        if (isStopping) return
+        startRecognizerInternal()
     }
 
     // ── RecognitionListener callbacks (called on main thread) ────────────
@@ -152,24 +209,28 @@ class AndroidSpeechEngine(
     }
 
     override fun onError(error: Int) {
-        val message = when (error) {
-            SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-            SpeechRecognizer.ERROR_CLIENT -> "Client-side error"
-            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing RECORD_AUDIO permission"
-            SpeechRecognizer.ERROR_NETWORK -> "Network error"
-            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-            SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized"
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
-            SpeechRecognizer.ERROR_SERVER -> "Server error"
-            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
-            else -> "Unknown error ($error)"
-        }
-        _events.tryEmit(TranscriptionEvent.Error(message))
-        isListening = false
+        val isFatal = error == SpeechRecognizer.ERROR_AUDIO ||
+            error == SpeechRecognizer.ERROR_CLIENT ||
+            error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
+            error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
 
-        // Android's SpeechRecognizer stops after an error or result,
-        // so if we want continuous listening we need to restart.
-        // For now we just report the error — the service can decide to restart.
+        if (isFatal) {
+            val message = when (error) {
+                SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                SpeechRecognizer.ERROR_CLIENT -> "Client-side error"
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing RECORD_AUDIO permission"
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
+                else -> "Unknown error ($error)"
+            }
+            _events.tryEmit(TranscriptionEvent.Error(message))
+            isListening = false
+        } else {
+            // Recoverable errors — restart silently in continuous mode.
+            // ERROR_NO_MATCH, ERROR_SPEECH_TIMEOUT, ERROR_NETWORK,
+            // ERROR_NETWORK_TIMEOUT, ERROR_SERVER
+            isListening = false
+            scheduleRestart()
+        }
     }
 
     override fun onResults(results: Bundle?) {
@@ -179,6 +240,10 @@ class AndroidSpeechEngine(
             _events.tryEmit(TranscriptionEvent.Final(text))
         }
         isListening = false
+
+        // Android's SpeechRecognizer stops after delivering results.
+        // Restart automatically for continuous listening.
+        scheduleRestart()
     }
 
     override fun onPartialResults(partialResults: Bundle?) {

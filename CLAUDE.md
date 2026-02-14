@@ -6,6 +6,13 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 Android app (Kotlin) that transcribes speech to text and saves it as notes. Inspired by the desktop Python "voice to text" project in the sibling directory. Uses either Vosk (offline, ~50 MB model) or Android SpeechRecognizer (online/Google) for recognition, configurable in settings.
 
+## Environment
+
+```bash
+# Android Studio's bundled JDK — required for Gradle builds
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+```
+
 ## Build Commands
 
 ```bash

@@ -9,11 +9,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.voice2text.android.R
+import com.voice2text.android.Voice2TextApplication
 import com.voice2text.android.databinding.ActivitySettingsBinding
 import com.voice2text.android.settings.PreferencesRepository
 import com.voice2text.android.speech.EngineFactory
 import com.voice2text.android.speech.VoskModelManager
-import com.voice2text.android.trigger.TriggerManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -28,7 +28,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var prefs: PreferencesRepository
-    private lateinit var triggerManager: TriggerManager
     private lateinit var modelManager: VoskModelManager
 
     // ── SAF folder picker ────────────────────────────────────────────────
@@ -52,20 +51,12 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.title = getString(R.string.settings_title)
 
         prefs = PreferencesRepository(applicationContext)
-        triggerManager = TriggerManager(applicationContext)
         modelManager = VoskModelManager(applicationContext)
 
         setupEngineSection()
         observeModelState()
         setupStorageSection()
         setupTriggersSection()
-    }
-
-    override fun onDestroy() {
-        // Don't release triggerManager here — it should stay active
-        // if the BT trigger is enabled. The Application class or
-        // MainActivity should own its long-term lifecycle.
-        super.onDestroy()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -258,18 +249,18 @@ class SettingsActivity : AppCompatActivity() {
     // ── Triggers section ─────────────────────────────────────────────────
 
     private fun setupTriggersSection() {
-        // Load current BT trigger preference
+        // Load current BT trigger preference to set the switch state.
+        // The Application class reactively mirrors the preference into
+        // TriggerManager, so we only need to update the preference here.
         lifecycleScope.launch {
             val btEnabled = prefs.bluetoothTriggerEnabled.first()
             binding.bluetoothTriggerSwitch.isChecked = btEnabled
-            triggerManager.setBluetoothTriggerEnabled(btEnabled)
         }
 
         binding.bluetoothTriggerSwitch.setOnCheckedChangeListener { _, isChecked ->
             lifecycleScope.launch {
                 prefs.setBluetoothTriggerEnabled(isChecked)
             }
-            triggerManager.setBluetoothTriggerEnabled(isChecked)
         }
     }
 }
