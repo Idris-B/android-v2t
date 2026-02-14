@@ -13,6 +13,12 @@
     <string name="delete_note_message">This cannot be undone.</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
+    <string name="share">Share</string>
+    <string name="copy">Copy</string>
+    <string name="share_via">Share via</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="note_deleted">Note deleted</string>
+    <string name="note_not_found">Note not found</string>
 
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
@@ -23,7 +29,12 @@
     <string name="settings_engine_android">Android (online) — uses Google, best accuracy</string>
     <string name="settings_engine_vosk">Vosk (offline) — works without internet, ~50 MB model</string>
     <string name="settings_vosk_model_ready">Model downloaded and ready</string>
-    <string name="settings_vosk_model_missing">Model not downloaded — will download on first use</string>
+    <string name="settings_vosk_model_missing">Model not downloaded (~50 MB)</string>
+    <string name="settings_vosk_download_model">Download model</string>
+    <string name="settings_vosk_delete_model">Delete model</string>
+    <string name="settings_vosk_downloading">Downloading… %d%%</string>
+    <string name="settings_vosk_extracting">Extracting…</string>
+    <string name="settings_vosk_download_failed">Download failed: %s</string>
 
     <string name="settings_section_storage">Notes Storage</string>
     <string name="settings_folder_label">Save notes to</string>

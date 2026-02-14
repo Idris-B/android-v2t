@@ -12,11 +12,10 @@ import com.voice2text.android.R
 import com.voice2text.android.databinding.ActivitySettingsBinding
 import com.voice2text.android.settings.PreferencesRepository
 import com.voice2text.android.speech.EngineFactory
-import com.voice2text.android.speech.VoskEngine
+import com.voice2text.android.speech.VoskModelManager
 import com.voice2text.android.trigger.TriggerManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * Settings screen for configuring the speech engine, notes storage
@@ -30,6 +29,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var prefs: PreferencesRepository
     private lateinit var triggerManager: TriggerManager
+    private lateinit var modelManager: VoskModelManager
 
     // ── SAF folder picker ────────────────────────────────────────────────
 
@@ -53,8 +53,10 @@ class SettingsActivity : AppCompatActivity() {
 
         prefs = PreferencesRepository(applicationContext)
         triggerManager = TriggerManager(applicationContext)
+        modelManager = VoskModelManager(applicationContext)
 
         setupEngineSection()
+        observeModelState()
         setupStorageSection()
         setupTriggersSection()
     }
@@ -101,22 +103,99 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Shows model download status when Vosk is selected.
-     * Checks whether the model directory exists on disk.
+     * Shows/hides the Vosk model section (status + download/delete button)
+     * depending on whether Vosk is the selected engine.
      */
     private fun updateVoskModelStatus(showStatus: Boolean) {
+        val visibility = if (showStatus) View.VISIBLE else View.GONE
+        binding.voskModelStatus.visibility = visibility
+        binding.voskModelButton.visibility = visibility
+        // Progress bar visibility is managed by observeModelState
         if (!showStatus) {
-            binding.voskModelStatus.visibility = View.GONE
-            return
+            binding.voskModelProgress.visibility = View.GONE
         }
 
-        binding.voskModelStatus.visibility = View.VISIBLE
-        val modelDir = File(filesDir, VoskEngine.MODEL_DIR_NAME)
-        if (modelDir.exists() && modelDir.isDirectory) {
-            binding.voskModelStatus.text = getString(R.string.settings_vosk_model_ready)
-        } else {
-            binding.voskModelStatus.text = getString(R.string.settings_vosk_model_missing)
+        if (showStatus) {
+            // Refresh the UI based on the current model manager state
+            updateModelUI(modelManager.downloadState.value)
         }
+    }
+
+    /**
+     * Collects model download state changes and updates the UI accordingly.
+     * This runs for the lifetime of the activity, so progress updates
+     * from a background download are reflected in real-time.
+     */
+    private fun observeModelState() {
+        lifecycleScope.launch {
+            modelManager.downloadState.collect { state ->
+                updateModelUI(state)
+            }
+        }
+    }
+
+    /**
+     * Updates status text, progress bar, and button label/action
+     * based on the current [VoskModelManager.State].
+     */
+    private fun updateModelUI(state: VoskModelManager.State) {
+        when (state) {
+            is VoskModelManager.State.Idle -> {
+                if (modelManager.isModelReady) {
+                    binding.voskModelStatus.text = getString(R.string.settings_vosk_model_ready)
+                    binding.voskModelButton.text = getString(R.string.settings_vosk_delete_model)
+                    binding.voskModelButton.setOnClickListener { deleteModel() }
+                } else {
+                    binding.voskModelStatus.text = getString(R.string.settings_vosk_model_missing)
+                    binding.voskModelButton.text = getString(R.string.settings_vosk_download_model)
+                    binding.voskModelButton.setOnClickListener { downloadModel() }
+                }
+                binding.voskModelButton.isEnabled = true
+                binding.voskModelProgress.visibility = View.GONE
+            }
+            is VoskModelManager.State.Downloading -> {
+                binding.voskModelStatus.text =
+                    getString(R.string.settings_vosk_downloading, state.progressPercent)
+                binding.voskModelProgress.visibility = View.VISIBLE
+                binding.voskModelProgress.progress = state.progressPercent
+                binding.voskModelButton.isEnabled = false
+            }
+            is VoskModelManager.State.Extracting -> {
+                binding.voskModelStatus.text = getString(R.string.settings_vosk_extracting)
+                binding.voskModelProgress.visibility = View.VISIBLE
+                binding.voskModelProgress.isIndeterminate = true
+                binding.voskModelButton.isEnabled = false
+            }
+            is VoskModelManager.State.Ready -> {
+                binding.voskModelStatus.text = getString(R.string.settings_vosk_model_ready)
+                binding.voskModelButton.text = getString(R.string.settings_vosk_delete_model)
+                binding.voskModelButton.setOnClickListener { deleteModel() }
+                binding.voskModelButton.isEnabled = true
+                binding.voskModelProgress.visibility = View.GONE
+            }
+            is VoskModelManager.State.Error -> {
+                binding.voskModelStatus.text =
+                    getString(R.string.settings_vosk_download_failed, state.message)
+                binding.voskModelButton.text = getString(R.string.settings_vosk_download_model)
+                binding.voskModelButton.setOnClickListener { downloadModel() }
+                binding.voskModelButton.isEnabled = true
+                binding.voskModelProgress.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun downloadModel() {
+        lifecycleScope.launch {
+            try {
+                modelManager.ensureModelDownloaded()
+            } catch (_: Exception) {
+                // Error state is already emitted via downloadState flow
+            }
+        }
+    }
+
+    private fun deleteModel() {
+        modelManager.deleteModel()
     }
 
     // ── Storage section ──────────────────────────────────────────────────

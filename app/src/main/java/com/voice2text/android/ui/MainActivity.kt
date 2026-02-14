@@ -253,13 +253,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openNoteDetail(note: NoteEntity) {
-        // TODO: launch NoteDetailActivity
-        // For now, show a simple dialog with the full text
-        AlertDialog.Builder(this)
-            .setTitle(note.title)
-            .setMessage(note.text)
-            .setPositiveButton("OK", null)
-            .show()
+        val intent = Intent(this, NoteDetailActivity::class.java).apply {
+            putExtra(NoteDetailActivity.EXTRA_NOTE_PATH, note.filePath)
+        }
+        startActivity(intent)
     }
 
     private fun confirmDeleteNote(note: NoteEntity) {
