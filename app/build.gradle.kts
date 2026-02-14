@@ -51,6 +51,9 @@ dependencies {
     // Vosk (offline speech recognition)
     implementation("com.alphacephei:vosk-android:0.3.47")
 
+    // SAF helper for external folder access
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     // Preferences / DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
