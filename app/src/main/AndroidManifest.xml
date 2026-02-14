@@ -27,5 +27,26 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
+        <!-- Quick Settings tile: toggle transcription from notification shade -->
+        <service
+            android:name=".trigger.TranscriptionTileService"
+            android:icon="@android:drawable/ic_btn_speak_now"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Fallback receiver for media button events (BT headset, wired earbuds) -->
+        <receiver
+            android:name=".trigger.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

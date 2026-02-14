@@ -51,6 +51,18 @@ class TranscriptionService : Service() {
         const val ACTION_START = "com.voice2text.android.ACTION_START"
         const val ACTION_STOP = "com.voice2text.android.ACTION_STOP"
 
+        /**
+         * Simple static flag so external components (Quick Settings tile,
+         * BroadcastReceiver) can check recording state without binding.
+         *
+         * This is safe because [TranscriptionService] is the sole writer
+         * and state transitions happen on the main thread. Readers (tile,
+         * receiver) also run on the main thread.
+         */
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         fun startIntent(context: Context): Intent =
             Intent(context, TranscriptionService::class.java).apply { action = ACTION_START }
 
@@ -109,6 +121,7 @@ class TranscriptionService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         engine?.release()
         serviceScope.cancel()
         super.onDestroy()
@@ -121,6 +134,7 @@ class TranscriptionService : Service() {
         if (current is State.Initializing || current is State.Listening) return
 
         _transcriptionState.value = State.Initializing
+        isRunning = true
         _fullTranscript.clear()
 
         // Promote to foreground immediately so Android doesn't kill us
@@ -208,6 +222,7 @@ class TranscriptionService : Service() {
     }
 
     private fun cleanupService() {
+        isRunning = false
         _transcriptionState.value = State.Idle
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
