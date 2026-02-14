@@ -99,7 +99,7 @@
         android:layout_marginBottom="24dp"
         android:src="@android:drawable/ic_btn_speak_now"
         android:contentDescription="@string/start_recording"
-        app:fabSize="large"
+        app:fabSize="normal"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(chmod:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(wmic:*)",
+      "Bash(tasklist:*)",
+      "Bash(JAVA_HOME=\"$PROGRAMFILES/Android/Android Studio/jbr\" ./gradlew assembleDebug:*)",
+      "Bash(ls:*)",
+      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" devices)"
+    ]
+  }
+}
