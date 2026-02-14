@@ -13,4 +13,30 @@
     <string name="delete_note_message">This cannot be undone.</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+
+    <string name="settings_section_engine">Speech Engine</string>
+    <string name="settings_engine_label">Recognition engine</string>
+    <string name="settings_engine_description">Choose how speech is converted to text.</string>
+    <string name="settings_engine_android">Android (online) — uses Google, best accuracy</string>
+    <string name="settings_engine_vosk">Vosk (offline) — works without internet, ~50 MB model</string>
+    <string name="settings_vosk_model_ready">Model downloaded and ready</string>
+    <string name="settings_vosk_model_missing">Model not downloaded — will download on first use</string>
+
+    <string name="settings_section_storage">Notes Storage</string>
+    <string name="settings_folder_label">Save notes to</string>
+    <string name="settings_folder_description">Choose where transcribed notes are saved.</string>
+    <string name="settings_folder_default">Internal app storage (default)</string>
+    <string name="settings_choose_folder">Choose folder</string>
+    <string name="settings_reset_folder">Reset to default</string>
+
+    <string name="settings_section_triggers">Triggers</string>
+    <string name="settings_bt_trigger_label">Bluetooth media button</string>
+    <string name="settings_bt_trigger_description">Press play/pause on a Bluetooth headset or wired earbuds to toggle recording. Disables media controls for other apps while active.</string>
+    <string name="settings_qs_label">Quick Settings tile</string>
+    <string name="settings_qs_description">Always available. Pull down the notification shade and tap the Voice2Text tile. Add it via "Edit tiles" if you don\'t see it.</string>
+    <string name="settings_notif_label">Notification actions</string>
+    <string name="settings_notif_description">While recording, a "Stop" button appears in the persistent notification.</string>
 </resources>

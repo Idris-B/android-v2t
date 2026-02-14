@@ -134,7 +134,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.settingsButton.setOnClickListener {
-            // TODO: launch SettingsActivity
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
     }
 

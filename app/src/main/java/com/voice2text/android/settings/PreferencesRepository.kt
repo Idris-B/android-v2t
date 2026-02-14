@@ -3,6 +3,7 @@ package com.voice2text.android.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -24,6 +25,7 @@ class PreferencesRepository(private val context: Context) {
         // ── Keys ─────────────────────────────────────────────────────────
         val SPEECH_ENGINE = stringPreferencesKey("speech_engine")
         val NOTES_FOLDER_URI = stringPreferencesKey("notes_folder_uri")
+        val BLUETOOTH_TRIGGER_ENABLED = booleanPreferencesKey("bluetooth_trigger_enabled")
     }
 
     // ── Speech engine preference ────────────────────────────────────────
@@ -56,6 +58,19 @@ class PreferencesRepository(private val context: Context) {
             } else {
                 prefs.remove(NOTES_FOLDER_URI)
             }
+        }
+    }
+
+    // ── Bluetooth trigger preference ────────────────────────────────────
+
+    /** Whether the Bluetooth media button trigger is enabled. Defaults to false. */
+    val bluetoothTriggerEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[BLUETOOTH_TRIGGER_ENABLED] ?: false
+    }
+
+    suspend fun setBluetoothTriggerEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[BLUETOOTH_TRIGGER_ENABLED] = enabled
         }
     }
 }
