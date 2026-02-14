@@ -8,7 +8,10 @@
       "Bash(tasklist:*)",
       "Bash(JAVA_HOME=\"$PROGRAMFILES/Android/Android Studio/jbr\" ./gradlew assembleDebug:*)",
       "Bash(ls:*)",
-      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" devices)"
+      "Bash(\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" devices)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)"
     ]
   }
 }
